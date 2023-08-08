@@ -43,3 +43,44 @@ func NewModuleAdapter(
 	}
 	return adapter, cancel, nil
 }
+
+func (adapter *ModuleAdapter) CallFunc(
+	funcName string,
+	inputStr string, // json string
+) (string, error) {
+	// lock python runtime
+	unlock := LockPythonRuntime()
+	defer unlock() // unlock python runtime
+
+	// get func
+	funcObj := adapter.module.GetAttrString(funcName)
+	if funcObj == nil {
+		python3.PyErr_Print() // print python error
+		return "", errors.New("failed to get func: " + funcName)
+	}
+	defer funcObj.DecRef()
+	// check callable
+	if !python3.PyCallable_Check(funcObj) {
+		return "", errors.New("func is not callable: " + funcName)
+	}
+
+	// call func
+	args := python3.PyTuple_New(1)
+	defer args.DecRef()
+	python3.PyTuple_SetItem(args, 0, python3.PyUnicode_FromString(inputStr))
+	result := funcObj.Call(args, python3.Py_None)
+	if result == nil {
+		python3.PyErr_Print() // print python error
+		return "", errors.New("failed to call func: " + funcName)
+	}
+	defer result.DecRef()
+
+	// result should be a string
+	if !python3.PyUnicode_Check(result) {
+		return "", errors.New("result is not a string: " + funcName)
+	}
+
+	// get result
+	outputStr := python3.PyUnicode_AsUTF8(result)
+	return outputStr, nil
+}

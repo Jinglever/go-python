@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestNewModuleAdapter(t *testing.T) {
+func TestModuleAdapterCallFunc(t *testing.T) {
 	cancelEnv, err := InitPythonEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -15,7 +15,7 @@ func TestNewModuleAdapter(t *testing.T) {
 
 	_, filename, _, _ := runtime.Caller(0)
 	thisPath := path.Dir(filename)
-	_, cancelAdapter, err := NewModuleAdapter(
+	adapter, cancelAdapter, err := NewModuleAdapter(
 		"example",
 		[]string{path.Join(thisPath, "example")},
 	)
@@ -23,4 +23,12 @@ func TestNewModuleAdapter(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancelAdapter()
+
+	outputStr, err := adapter.CallFunc("echo", `{"name": "gopy"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outputStr != `{"name": "gopy"}` {
+		t.Fatalf("outputStr: %s", outputStr)
+	}
 }
